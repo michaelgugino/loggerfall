@@ -106,6 +106,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                   waiter.write_message(chat)
               except:
                   logging.error("Error sending message", exc_info=True)
+                  cls.channels[channel].remove(waiter)
 
     def on_message(self, message):
         logging.info("got message %r", message)
@@ -157,4 +158,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
