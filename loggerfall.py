@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 #
+# Original Work Copyright 2009 Facebook
+# 
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -11,8 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-#
-#modified from: https://github.com/tornadoweb/tornado/blob/master/demos/websocket/chatdemo.py
 """Simplified chat demo for websockets.
 
 Authentication, error handling, etc are left as an exercise for the reader :)
@@ -54,9 +54,8 @@ class MainHandler(tornado.web.RequestHandler):
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
     waiters = set()
     cache = []
+    channelcache = dict()
     channels = dict()
-    channels['t1'] = []
-    channels['t2'] = ['t2 test 1','t2 test 2']
     cache_size = 200
 
     def get_compression_options(self):
@@ -64,25 +63,41 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         return {}
 
     def open(self):
-        ChatSocketHandler.waiters.add(self)
-        print self.get_argument("ID", default='none', strip=False)
+        hostchannel = str(self.get_argument("HOST", default='none', strip=False))
+        appchannel = str(self.get_argument("APP", default='none', strip=False))
+        if (hostchannel == 'none' or appchannel == 'none'):
+          return none
+        if str(hostchannel+'::'+appchannel) in ChatSocketHandler.channels:
+          ChatSocketHandler.channels[hostchannel+'::'+appchannel].add(self)
+        else:
+          ChatSocketHandler.channels[hostchannel+'::'+appchannel] = set()
+          ChatSocketHandler.channels[hostchannel+'::'+appchannel].add(self)
+        #ChatSocketHandler.waiters.add(self)
     def on_close(self):
-        ChatSocketHandler.waiters.remove(self)
-
+        #ChatSocketHandler.waiters.remove(self)
+        ChatSocketHandler.channels[hostchannel+'::'+appchannel].remove(self)
     @classmethod
-    def update_cache(cls, chat):
-        cls.cache.append(chat)
+    def update_cache(cls,channel,chat):
+        #cls.cache.append(chat)
+        if channel in cls.channelcache:
+          cls.channelcache[channel].append(chat)
+        else:
+          cls.channelcache[channel] = []
+          cls.channelcache[channel].append(chat)
         if len(cls.cache) > cls.cache_size:
             cls.cache = cls.cache[-cls.cache_size:]
 
     @classmethod
     def send_updates(cls, chat):
         logging.info("sending message to %d waiters", len(cls.waiters))
-        for waiter in cls.waiters:
-            try:
-                waiter.write_message(chat)
-            except:
-                logging.error("Error sending message", exc_info=True)
+        if cls.channels:
+          for channel in cls.channels:
+            for waiter in cls.channels[channel]:
+              print waiter
+              try:
+                  waiter.write_message(chat)
+              except:
+                  logging.error("Error sending message", exc_info=True)
 
     def on_message(self, message):
         logging.info("got message %r", message)
@@ -106,8 +121,12 @@ def main_on_message(app,message):
             "body": parsed["body"],
             }
         chat["html"] = """<div class="message" id="0">%s</div>""" % parsed['body']
+        
+        if ChatSocketHandler.channels:
+          for channel in ChatSocketHandler.channels:
+            #this is where we'll pull data from redis
+            ChatSocketHandler.update_cache(channel,chat)
 
-        ChatSocketHandler.update_cache(chat)
         ChatSocketHandler.send_updates(chat)
 def main():
 
