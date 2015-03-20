@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
-# Original Work Copyright 2009 Facebook
-# 
+# Copyright 2009 Facebook
+#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -49,11 +49,18 @@ class Application(tornado.web.Application):
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        self.render("index.html", messages=ChatSocketHandler.cache)
+        hostchannel = str(self.get_argument("HOST", default='none', strip=False))
+        appchannel = str(self.get_argument("APP", default='none', strip=False))
+        cache = str(hostchannel + '::' + appchannel)
+        if cache in ChatSocketHandler.channelcache:
+           cache = ChatSocketHandler.channelcache[cache]
+        else:
+           cache = []
+        self.render("index.html", messages=cache)
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
-    waiters = set()
-    cache = []
+#    waiters = set()
+#    cache = []
     channelcache = dict()
     channels = dict()
     cache_size = 200
@@ -67,6 +74,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         appchannel = str(self.get_argument("APP", default='none', strip=False))
         if (hostchannel == 'none' or appchannel == 'none'):
           return none
+        self.subscribe = hostchannel+'::'+appchannel
         if str(hostchannel+'::'+appchannel) in ChatSocketHandler.channels:
           ChatSocketHandler.channels[hostchannel+'::'+appchannel].add(self)
         else:
@@ -76,6 +84,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
     def on_close(self):
         #ChatSocketHandler.waiters.remove(self)
         ChatSocketHandler.channels[hostchannel+'::'+appchannel].remove(self)
+
     @classmethod
     def update_cache(cls,channel,chat):
         #cls.cache.append(chat)
@@ -84,16 +93,15 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         else:
           cls.channelcache[channel] = []
           cls.channelcache[channel].append(chat)
-        if len(cls.cache) > cls.cache_size:
-            cls.cache = cls.cache[-cls.cache_size:]
+        if len(cls.channelcache) > cls.cache_size:
+            cls.channelcache = cls.channelcache[-cls.cache_size:]
 
     @classmethod
-    def send_updates(cls, chat):
-        logging.info("sending message to %d waiters", len(cls.waiters))
-        if cls.channels:
-          for channel in cls.channels:
+    def send_updates(cls, channel, chat):
+            logging.info("sending message to %d waiters", len(cls.channels[channel]))
             for waiter in cls.channels[channel]:
-              print waiter
+              print "waiters", waiter
+              #logging.info("sending message to %d waiters", len())
               try:
                   waiter.write_message(chat)
               except:
@@ -120,14 +128,16 @@ def main_on_message(app,message):
             "id": str(uuid.uuid4()),
             "body": parsed["body"],
             }
-        chat["html"] = """<div class="message" id="0">%s</div>""" % parsed['body']
+        #chat["html"] = """<div class="message" id="0">%s</div>""" % parsed['body']
         
         if ChatSocketHandler.channels:
           for channel in ChatSocketHandler.channels:
             #this is where we'll pull data from redis
+            print "channel: ",channel
+            chat["html"] = """<div class="message" id="0">%s : %s</div>""" % (channel, parsed['body'])
             ChatSocketHandler.update_cache(channel,chat)
 
-        ChatSocketHandler.send_updates(chat)
+            ChatSocketHandler.send_updates(channel,chat)
 def main():
 
     tornado.options.parse_command_line()
@@ -138,9 +148,8 @@ def main():
     #tornado.ioloop.IOLoop.spawn_callback(t1)
     def t2():
       #print app.handlers[0][1][4].handler_class.cache
-      print ChatSocketHandler.cache
-      main_on_message(app,u'{"body":"test","_xsrf":"2|7f1e46b3|f4ea7f3d2aeef31b4aabb4af00886db3|1426865952"}'
-)
+      #print ChatSocketHandler.cache
+      main_on_message(app,u'{"body":"test","_xsrf":"2|7f1e46b3|f4ea7f3d2aeef31b4aabb4af00886db3|1426865952"}')
     pcall = tornado.ioloop.PeriodicCallback(t2, 2000)
     pcall.start()
     goer.start()
@@ -148,3 +157,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
