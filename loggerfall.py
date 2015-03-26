@@ -26,10 +26,10 @@ import tornado.web
 import tornado.websocket
 import os.path
 import uuid
-
+from tornado.httpserver import HTTPServer
 from tornado.options import define, options
 
-define("port", default=8888, help="run on the given port", type=int)
+#define("port", default=8888, help="run on the given port", type=int)
 
 
 class Application(tornado.web.Application):
@@ -56,6 +56,7 @@ class MainHandler(tornado.web.RequestHandler):
            cache = ChatSocketHandler.channelcache[cache]
         else:
            cache = []
+        
         self.render("index.html", messages=cache)
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
@@ -139,14 +140,20 @@ def main_on_message(app,message):
             ChatSocketHandler.update_cache(channel,chat)
 
             ChatSocketHandler.send_updates(channel,chat)
-def main():
-
+def main(**kwargs):
+    import socket
+    define("port", default=8887, help="run on the given port", type=int)
+    define("path", default="/tmp/test", help="run on the given port", type=str)
+    define("fd", default=8888, help="run on the given port", type=int)
     tornado.options.parse_command_line()
     app = Application()
-    app.listen(options.port)
-    #tornado.ioloop.IOLoop.spawn_callback(t1)
+    #app.listen(options.port)
+    
+    sock = socket.fromfd(options.fd, socket.AF_INET, socket.SOCK_STREAM)
+    server = HTTPServer(app, **kwargs)
+    server.add_socket(sock)
+
     goer = tornado.ioloop.IOLoop.instance() 
-    #tornado.ioloop.IOLoop.spawn_callback(t1)
     def t2():
       #print app.handlers[0][1][4].handler_class.cache
       #print ChatSocketHandler.cache
