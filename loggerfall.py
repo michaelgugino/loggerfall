@@ -110,17 +110,18 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                   cls.channels[channel].remove(waiter)
 
     def on_message(self, message):
-        logging.info("got message %r", message)
-        parsed = tornado.escape.json_decode(message)
-        chat = {
-            "id": str(uuid.uuid4()),
-            "body": parsed["body"],
-            }
-        chat["html"] = tornado.escape.to_basestring(
-            self.render_string("message.html", message=chat))
+        pass
+       # logging.info("got message %r", message)
+       # parsed = tornado.escape.json_decode(message)
+       # chat = {
+       #     "id": str(uuid.uuid4()),
+       #     "body": parsed["body"],
+       #     }
+       # chat["html"] = tornado.escape.to_basestring(
+       #     self.render_string("message.html", message=chat))
 
-        ChatSocketHandler.update_cache(chat)
-        ChatSocketHandler.send_updates(chat)
+#        ChatSocketHandler.update_cache(chat)
+#        ChatSocketHandler.send_updates(chat)
 def t1():
   print 't1'
 
@@ -134,24 +135,30 @@ def main_on_message(app,message):
         
         if ChatSocketHandler.channels:
           for channel in ChatSocketHandler.channels:
-            #this is where we'll pull data from redis
-            print "channel: ",channel
-            chat["html"] = """<div class="message" id="0">%s : %s</div>""" % (channel, parsed['body'])
-            ChatSocketHandler.update_cache(channel,chat)
-
-            ChatSocketHandler.send_updates(channel,chat)
+            #check if there are no subscribers
+            if len(ChatSocketHandler.channels[channel]) == 0:
+              #no subscribers = remove channel
+              del ChatSocketHandler.channels[channel]
+            else:
+              #this is where we'll pull data from redis
+              print "channel: ",channel
+              chat["html"] = """<div class="message" id="0">%s : %s</div>""" % (channel, parsed['body'])
+              ChatSocketHandler.update_cache(channel,chat)
+              #should change this method to only send new info
+              ChatSocketHandler.send_updates(channel,chat)
 def main(**kwargs):
     import socket
-    define("port", default=8887, help="run on the given port", type=int)
+    define("port", default=0, help="run on the given port", type=int)
     define("path", default="/tmp/test", help="run on the given port", type=str)
     define("fd", default=8888, help="run on the given port", type=int)
     tornado.options.parse_command_line()
     app = Application()
-    #app.listen(options.port)
-    
-    sock = socket.fromfd(options.fd, socket.AF_INET, socket.SOCK_STREAM)
-    server = HTTPServer(app, **kwargs)
-    server.add_socket(sock)
+    if options.port > 0:
+      app.listen(options.port)
+    else:
+      sock = socket.fromfd(options.fd, socket.AF_INET, socket.SOCK_STREAM)
+      server = HTTPServer(app, **kwargs)
+      server.add_socket(sock)
 
     goer = tornado.ioloop.IOLoop.instance() 
     def t2():

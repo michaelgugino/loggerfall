@@ -16,7 +16,7 @@ $(document).ready(function() {
     if (!window.console.log) window.console.log = function() {};
     //alert($(location).attr('href'));
     //alert(purl().attr('query'));
-    $("#messageform").live("submit", function() {
+/*    $("#messageform").live("submit", function() {
         newMessage($(this));
         return false;
     });
@@ -27,7 +27,13 @@ $(document).ready(function() {
         }
     });
     $("#message").select();
-    updater.start();
+*/
+    var myInbox = new multiupdater(location.host,purl().attr('query'),'#inbox');
+    var myInbox2 = new multiupdater(location.host,'HOST=mikehost&APP=testapp','#inbox2');
+    //myInbox.setupdater(myInbox);
+    myInbox.updater.start(myInbox);
+    myInbox2.updater.start(myInbox2);
+    //updater.start(location.host, purl().attr('query'));
 });
 
 function newMessage(form) {
@@ -46,11 +52,41 @@ jQuery.fn.formToDict = function() {
     return json;
 };
 
+function multiupdater(host, query, divid) {
+  this.host = host;
+  this.query = query;
+  this.divid = divid;
+  
+  this.updater = {
+
+    socket: null,
+    divid: null,
+    host: null,
+    query: null,
+    start: function(myobj) {
+        var url = "ws://" + myobj.host + "/chatsocket?" + myobj.query;
+        myobj.updater.socket = new WebSocket(url);
+        myobj.updater.socket.onmessage = function(event) {
+            myobj.updater.showMessage(myobj.divid, JSON.parse(event.data));
+        }
+    },
+       showMessage: function(divid, message) {
+        var existing = $("#m" + message.id);
+        if (existing.length > 0) return;
+        var node = $(message.html);
+        node.hide();
+        $(divid).append(node);
+        node.slideDown();
+    }   
+    
+    };
+};
+
 var updater = {
     socket: null,
 
-    start: function() {
-        var url = "ws://" + location.host + "/chatsocket?" + purl().attr('query');
+    start: function(host, query) {
+        var url = "ws://" + host + "/chatsocket?" + query;
         updater.socket = new WebSocket(url);
         updater.socket.onmessage = function(event) {
             updater.showMessage(JSON.parse(event.data));
