@@ -13,9 +13,9 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-"""Simplified chat demo for websockets.
+"""Streaming data (logs) via websockets.
 
-Authentication, error handling, etc are left as an exercise for the reader :)
+Authentication, error handling, etc are not implemented yet
 """
 
 import logging
@@ -32,7 +32,7 @@ import redis
 import ast
 
 
-#define("port", default=8888, help="run on the given port", type=int)
+
 pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
 redcon = redis.Redis(connection_pool=pool)
 
@@ -53,6 +53,7 @@ class Application(tornado.web.Application):
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
+        #need to remove get/post data from first get.
         hostchannel = str(self.get_argument("HOST", default='none', strip=False))
         appchannel = str(self.get_argument("APP", default='none', strip=False))
         cache = str(hostchannel + '::' + appchannel)
@@ -60,7 +61,8 @@ class MainHandler(tornado.web.RequestHandler):
            cache = ChatSocketHandler.channelcache[cache]
         else:
            cache = []
-        
+
+        #Need to update the index.html, no sending messages on first load.
         self.render("index.html", messages=cache)
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
@@ -74,6 +76,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         # Non-None enables compression with default options.
         return {}
 
+    #client opens a connection to receive messages.
     def open(self):
         hostchannel = str(self.get_argument("HOST", default='none', strip=False))
         appchannel = str(self.get_argument("APP", default='none', strip=False))
@@ -84,14 +87,35 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         if str(hostappchan) in ChatSocketHandler.channels:
           ChatSocketHandler.channels[hostappchan].add(self)
         else:
+          #add our channel set to channels dictionary
           ChatSocketHandler.channels[hostappchan] = set()
+          #create local cache for channel messages
+          ChatSocketHandler.channelcache[hostappchan] = list()
+          #add our client to our channel set
           ChatSocketHandler.channels[hostappchan].add(self)
+        #Send full 2k messages on connect
+        self.send_cache_on_connect(hostappchan)
+
+    def send_cache_on_connect(self,channel):
+        print "send_cache_on_connect: ", channel
+        try:
+          count = 0;
+          for msg in redcon.lrange(channel,-2000,-1):
+            if count < self.cache_size:
+                local_cache_update(channel, msg, 0)
+            count = count + 1
+            self.write_message(ast.literal_eval(msg))
+        except:
+          logging.error("Error sending message", exc_info=True)
+          ChatSocketHandler.channels[channel].remove(self)
+
+    #Client has disconnected
     def on_close(self):
         hostchannel = str(self.get_argument("HOST", default='none', strip=False))
         appchannel = str(self.get_argument("APP", default='none', strip=False))
         hostappchan = hostchannel + '::' + appchannel
         ChatSocketHandler.channels[hostappchan].remove(self)
- 
+
     @classmethod
     def update_cache(cls,channel,chat):
         #cls.cache.append(chat)
@@ -102,6 +126,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
           cls.channelcache[channel].append(chat)
         if len(cls.channelcache) > cls.cache_size:
             cls.channelcache = cls.channelcache[-cls.cache_size:]
+
 
     @classmethod
     def send_updates(cls, channel, chat):
@@ -131,6 +156,15 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
           logging.error("Error sending message", exc_info=True)
           cls.channels[channel].remove(waiter)
 
+    @classmethod
+    def send_updates3(cls, channel, msg):
+        for waiter in cls.channels[channel]:
+            try:
+                waiter.write_message(msg)
+            except:
+              logging.error("Error sending message", exc_info=True)
+              cls.channels[channel].remove(waiter)
+
     def on_message(self, message):
         pass
 
@@ -141,7 +175,7 @@ def push_to_redis(app,message):
     "id": str(uuid.uuid4()),
     "body": parsed["body"],
     }
-  
+
   if ChatSocketHandler.channels:
     removals = list()
     for channel in ChatSocketHandler.channels:
@@ -163,7 +197,7 @@ def main_on_message(app,message):
             "body": parsed["body"],
             }
         #chat["html"] = """<div class="message" id="0">%s</div>""" % parsed['body']
-        
+
         if ChatSocketHandler.channels:
           for channel in ChatSocketHandler.channels:
             #check if there are no subscribers
@@ -178,6 +212,48 @@ def main_on_message(app,message):
               ChatSocketHandler.update_cache(channel,chat)
               #should change this method to only send new info
               ChatSocketHandler.send_updates(channel,chat)
+
+def local_cache_update(channel, msg, cache_len):
+    if cache_len > 200:
+        ChatSocketHandler.channelcache[channel].pop()
+    ChatSocketHandler.channelcache[channel].append(msg)
+    pass
+
+
+def local_cache_check(channel, cache_set, msg):
+    if msg in cache_set:
+        return True
+    else:
+        return False
+
+def check_redis():
+      if ChatSocketHandler.channels:
+        removals = list()
+        for channel in ChatSocketHandler.channels:
+          #check for any active listeners on this channel
+          if len(ChatSocketHandler.channels[channel]) == 0:
+            removals.append(ChatSocketHandler.channels[channel])
+          else:
+            messages_to_send = list()
+            for msg in redcon.lrange(channel,-200,-1):
+                #check if message in local cache.
+                #append to local cache.
+                #clear old entries from local cache.
+                cache_set = set(ChatSocketHandler.channelcache[channel])
+                cache_len = len(cache_set)
+                if not local_cache_check(channel, cache_set, msg):
+                    cache_len = cache_len+1
+                    local_cache_update(channel, msg, cache_len)
+                    messages_to_send.append(msg)
+
+            if messages_to_send:
+                ChatSocketHandler.send_updates3(channel, msg)
+
+        for chan in removals:
+          del ChatSocketHandler.channels[channel]
+          del ChatSocketHandler.channelcache[channel]
+
+
 def main(**kwargs):
     import socket
     define("port", default=0, help="run on the given port", type=int)
@@ -192,14 +268,15 @@ def main(**kwargs):
       server = HTTPServer(app, **kwargs)
       server.add_socket(sock)
 
-    goer = tornado.ioloop.IOLoop.instance() 
+    goer = tornado.ioloop.IOLoop.instance()
     def t2():
       #print app.handlers[0][1][4].handler_class.cache
       #print ChatSocketHandler.cache
       main_on_message(app,u'{"body":"test","_xsrf":"2|7f1e46b3|f4ea7f3d2aeef31b4aabb4af00886db3|1426865952"}')
     def t3():
       push_to_redis(app,u'{"body":"test","_xsrf":"2|7f1e46b3|f4ea7f3d2aeef31b4aabb4af00886db3|1426865952"}')
-    pcall = tornado.ioloop.PeriodicCallback(t3, 2000)
+
+    pcall = tornado.ioloop.PeriodicCallback(check_redis, 1000)
     pcall.start()
     goer.start()
 
