@@ -56,11 +56,11 @@ class MainHandler(tornado.web.RequestHandler):
         #need to remove get/post data from first get.
         hostchannel = str(self.get_argument("HOST", default='none', strip=False))
         appchannel = str(self.get_argument("APP", default='none', strip=False))
-        cache = str(hostchannel + '::' + appchannel)
-        if cache in ChatSocketHandler.channelcache:
-           cache = ChatSocketHandler.channelcache[cache]
-        else:
-           cache = []
+        ##cache = str(hostchannel + '::' + appchannel)
+        ##if cache in ChatSocketHandler.channelcache:
+        ##   cache = ChatSocketHandler.channelcache[cache]
+        ##else:
+        cache = []
 
         #Need to update the index.html, no sending messages on first load.
         self.render("index.html", messages=cache)
@@ -160,7 +160,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
     def send_updates3(cls, channel, msg):
         for waiter in cls.channels[channel]:
             try:
-                waiter.write_message(msg)
+                waiter.write_message(ast.literal_eval(msg))
             except:
               logging.error("Error sending message", exc_info=True)
               cls.channels[channel].remove(waiter)
@@ -172,7 +172,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
 def push_to_redis(app,message):
   parsed = tornado.escape.json_decode(message)
   chat = {
-    "id": str(uuid.uuid4()),
+    #"id": str(uuid.uuid4()),
     "body": parsed["body"],
     }
 
@@ -182,8 +182,8 @@ def push_to_redis(app,message):
       if len(ChatSocketHandler.channels[channel]) == 0:
         removals.append(ChatSocketHandler.channels[channel])
       else:
-        chat["id"] = str(uuid.uuid4())
-        chat["html"] = """<div class="message" id="#m%s">%s : %s</div>""" % (chat['id'], channel, str(parsed['body'] + chat["id"]))
+        #chat["id"] = str(uuid.uuid4())
+        chat["html"] = """<div class="message">%s : %s</div>""" % (channel, str(parsed['body']))
         print "push_to_redis", chat
         redcon.rpush(channel,chat)
         ChatSocketHandler.send_updates2(channel,chat)
@@ -224,6 +224,7 @@ def local_cache_check(channel, cache_set, msg):
     if msg in cache_set:
         return True
     else:
+        print "not in cache: ", msg
         return False
 
 def check_redis():
@@ -274,7 +275,7 @@ def main(**kwargs):
       #print ChatSocketHandler.cache
       main_on_message(app,u'{"body":"test","_xsrf":"2|7f1e46b3|f4ea7f3d2aeef31b4aabb4af00886db3|1426865952"}')
     def t3():
-      push_to_redis(app,u'{"body":"test","_xsrf":"2|7f1e46b3|f4ea7f3d2aeef31b4aabb4af00886db3|1426865952"}')
+      push_to_redis(app,u'{"body":"test"}')
 
     pcall = tornado.ioloop.PeriodicCallback(check_redis, 1000)
     pcall.start()

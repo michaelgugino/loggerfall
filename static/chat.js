@@ -56,7 +56,7 @@ function multiupdater(host, query, divid) {
   this.host = host;
   this.query = query;
   this.divid = divid;
-  
+
   this.updater = {
 
     socket: null,
@@ -71,14 +71,14 @@ function multiupdater(host, query, divid) {
         }
     },
        showMessage: function(divid, message) {
-        var existing = $("#m" + message.id);
-        if (existing.length > 0) return;
+        //var existing = $("#m" + message.id);
+        //if (existing.length > 0) return;
         var node = $(message.html);
         node.hide();
         $(divid).append(node);
         node.slideDown();
-    }   
-    
+    }
+
     };
 };
 
