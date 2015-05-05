@@ -11,29 +11,45 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
+
+
 $(document).ready(function() {
     if (!window.console) window.console = {};
     if (!window.console.log) window.console.log = function() {};
-    //alert($(location).attr('href'));
-    //alert(purl().attr('query'));
-/*    $("#messageform").live("submit", function() {
-        newMessage($(this));
-        return false;
+
+    $('.dragThis')
+    .resizable({
+      stop: function(event, ui) {
+        var w = $(this).width();
+        var h = $(this).height();
+        console.log('StopEvent fired')
+        console.log('Width:'+w);
+        console.log('Height:'+h)
+      }
+    })
+    .draggable({
+      containment: $('body'),
+      drag: function(){
+        var offset = $(this).offset();
+        var xPos = offset.left;
+        var yPos = offset.top;
+        $('#posX').text('x: ' + xPos);
+        $('#posY').text('y: ' + yPos);
+      },
+      stop: function(){
+        var finalOffset = $(this).offset();
+        var finalxPos = finalOffset.left;
+        var finalyPos = finalOffset.top;
+        $('#finalX').text('Final X: ' + finalxPos);
+        $('#finalY').text('Final X: ' + finalyPos);
+      }
     });
-    $("#messageform").live("keypress", function(e) {
-        if (e.keyCode == 13) {
-            newMessage($(this));
-            return false;
-        }
-    });
-    $("#message").select();
-*/
+
     var myInbox = new multiupdater(location.host,purl().attr('query'),'#inbox');
     var myInbox2 = new multiupdater(location.host,'HOST=mikehost&APP=testapp','#inbox2');
-    //myInbox.setupdater(myInbox);
+
     myInbox.updater.start(myInbox);
     myInbox2.updater.start(myInbox2);
-    //updater.start(location.host, purl().attr('query'));
 });
 
 function newMessage(form) {
@@ -77,28 +93,8 @@ function multiupdater(host, query, divid) {
         node.hide();
         $(divid).append(node);
         node.slideDown();
+        $(divid).animate({ scrollTop: $(divid)[0].scrollHeight}, 500);
     }
 
     };
-};
-
-var updater = {
-    socket: null,
-
-    start: function(host, query) {
-        var url = "ws://" + host + "/chatsocket?" + query;
-        updater.socket = new WebSocket(url);
-        updater.socket.onmessage = function(event) {
-            updater.showMessage(JSON.parse(event.data));
-        }
-    },
-
-    showMessage: function(message) {
-        var existing = $("#m" + message.id);
-        if (existing.length > 0) return;
-        var node = $(message.html);
-        node.hide();
-        $("#inbox").append(node);
-        node.slideDown();
-    }
 };

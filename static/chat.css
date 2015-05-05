@@ -54,3 +54,14 @@ td {
   float: right;
   z-index: 99;
 }
+
+.dragThis {
+        width: 645px;
+        height: 250px;
+        padding: 0.5em;
+        border: 3px solid #ccc;
+        border-radius: 0 1em 1em 1em;
+        background-color: #fff;
+        background-color: rgba(255,255,255,0.5);
+        overflow: scroll;
+    }

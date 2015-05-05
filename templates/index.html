@@ -4,6 +4,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
     <title>LoggerFall</title>
     <link rel="stylesheet" href="{{ static_url("chat.css") }}" type="text/css"/>
+    <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.1/themes/base/jquery-ui.css" type="text/css" />
   </head>
   <body>
     <div id="body">
@@ -12,15 +13,17 @@
           {% include "message.html" %}
         {% end %}
       </div>
-<div id="container" style="float: left; width: 200px; height: 500px;  overflow: scroll;">
-    <div id="inbox" style="left: 10px; top: 10px;">1</div>
-</div>
-<div id="container" style="float: left; width: 200px; height: 500px; overflow: scroll;">
-    <div id="inbox2" style="left: 20px; top: 200px;">2</div>
-</div>
+      <div id="inbox" class="dragThis">
+        1
+      </div>
+      <div id="inbox2" class="dragThis">
+      2
+      </div>
+
     </div>
     <script src="{{ static_url("jquery.min.js") }}" type="text/javascript"></script>
     <script src="{{ static_url("purl.js") }}" type="text/javascript"></script>
     <script src="{{ static_url("chat.js") }}" type="text/javascript"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.js"></script>
   </body>
 </html>
