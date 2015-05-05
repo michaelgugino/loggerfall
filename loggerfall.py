@@ -56,18 +56,13 @@ class MainHandler(tornado.web.RequestHandler):
         #need to remove get/post data from first get.
         hostchannel = str(self.get_argument("HOST", default='none', strip=False))
         appchannel = str(self.get_argument("APP", default='none', strip=False))
-        ##cache = str(hostchannel + '::' + appchannel)
-        ##if cache in ChatSocketHandler.channelcache:
-        ##   cache = ChatSocketHandler.channelcache[cache]
-        ##else:
         cache = []
 
-        #Need to update the index.html, no sending messages on first load.
+        #Need to update the index.html
         self.render("index.html", messages=cache)
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
-#    waiters = set()
-#    cache = []
+
     channelcache = dict()
     channels = dict()
     cache_size = 200
@@ -100,8 +95,10 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         print "send_cache_on_connect: ", channel
         try:
           count = 0;
-          for msg in redcon.lrange(channel,-2000,-1):
-            if count < self.cache_size:
+          res = redcon.lrange(channel,-2000,-1)
+          reslen = len(res)
+          for msg in res:
+            if count > reslen - self.cache_size:
                 local_cache_update(channel, msg, 0)
             count = count + 1
             self.write_message(ast.literal_eval(msg))
@@ -117,46 +114,6 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         ChatSocketHandler.channels[hostappchan].remove(self)
 
     @classmethod
-    def update_cache(cls,channel,chat):
-        #cls.cache.append(chat)
-        if channel in cls.channelcache:
-          cls.channelcache[channel].append(chat)
-        else:
-          cls.channelcache[channel] = []
-          cls.channelcache[channel].append(chat)
-        if len(cls.channelcache) > cls.cache_size:
-            cls.channelcache = cls.channelcache[-cls.cache_size:]
-
-
-    @classmethod
-    def send_updates(cls, channel, chat):
-            logging.info("sending message to %d waiters", len(cls.channels[channel]))
-            for waiter in cls.channels[channel]:
-              print "waiters", waiter
-              #logging.info("sending message to %d waiters", len())
-              try:
-                  print "send_updates: ", type(chat)
-                  waiter.write_message(chat)
-              except:
-                  logging.error("Error sending message", exc_info=True)
-                  cls.channels[channel].remove(waiter)
-    @classmethod
-    def send_updates2(cls, channel, chat):
-      logging.info("sending message to %d waiters", len(cls.channels[channel]))
-      for waiter in cls.channels[channel]:
-        print channel
-        print "chat: ", chat
-        print "waiters", waiter
-        try:
-          for msg in redcon.lrange(channel,-200,-1):
-            #print "msg: ", type(msg)
-            waiter.write_message(ast.literal_eval(msg))
-          #waiter.write_message(chat)
-        except:
-          logging.error("Error sending message", exc_info=True)
-          cls.channels[channel].remove(waiter)
-
-    @classmethod
     def send_updates3(cls, channel, msg):
         for waiter in cls.channels[channel]:
             try:
@@ -169,49 +126,6 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         pass
 
 
-def push_to_redis(app,message):
-  parsed = tornado.escape.json_decode(message)
-  chat = {
-    #"id": str(uuid.uuid4()),
-    "body": parsed["body"],
-    }
-
-  if ChatSocketHandler.channels:
-    removals = list()
-    for channel in ChatSocketHandler.channels:
-      if len(ChatSocketHandler.channels[channel]) == 0:
-        removals.append(ChatSocketHandler.channels[channel])
-      else:
-        #chat["id"] = str(uuid.uuid4())
-        chat["html"] = """<div class="message">%s : %s</div>""" % (channel, str(parsed['body']))
-        print "push_to_redis", chat
-        redcon.rpush(channel,chat)
-        ChatSocketHandler.send_updates2(channel,chat)
-    for chan in removals:
-      del ChatSocketHandler.channels[channel]
-
-def main_on_message(app,message):
-        parsed = tornado.escape.json_decode(message)
-        chat = {
-            "id": str(uuid.uuid4()),
-            "body": parsed["body"],
-            }
-        #chat["html"] = """<div class="message" id="0">%s</div>""" % parsed['body']
-
-        if ChatSocketHandler.channels:
-          for channel in ChatSocketHandler.channels:
-            #check if there are no subscribers
-            if len(ChatSocketHandler.channels[channel]) == 0:
-              #no subscribers = remove channel
-              del ChatSocketHandler.channels[channel]
-            else:
-              #this is where we'll pull data from redis
-              print "channel: ",channel
-              chat["html"] = """<div class="message" id="0">%s : %s</div>""" % (channel, parsed['body'])
-              print "main_on_message: ", chat
-              ChatSocketHandler.update_cache(channel,chat)
-              #should change this method to only send new info
-              ChatSocketHandler.send_updates(channel,chat)
 
 def local_cache_update(channel, msg, cache_len):
     if cache_len > 200:
@@ -270,12 +184,6 @@ def main(**kwargs):
       server.add_socket(sock)
 
     goer = tornado.ioloop.IOLoop.instance()
-    def t2():
-      #print app.handlers[0][1][4].handler_class.cache
-      #print ChatSocketHandler.cache
-      main_on_message(app,u'{"body":"test","_xsrf":"2|7f1e46b3|f4ea7f3d2aeef31b4aabb4af00886db3|1426865952"}')
-    def t3():
-      push_to_redis(app,u'{"body":"test"}')
 
     pcall = tornado.ioloop.PeriodicCallback(check_redis, 1000)
     pcall.start()
