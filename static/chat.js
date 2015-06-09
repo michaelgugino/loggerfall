@@ -90,10 +90,10 @@ function multiupdater(host, query, divid) {
         //var existing = $("#m" + message.id);
         //if (existing.length > 0) return;
         var node = $(message.html);
-        node.hide();
+        //node.hide();
         $(divid).append(node);
-        node.slideDown();
-        $(divid).animate({ scrollTop: $(divid)[0].scrollHeight}, 500);
+        //node.slideDown();
+        $(divid).animate({ scrollTop: $(divid)[0].scrollHeight}, 0);
     }
 
     };

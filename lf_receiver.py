@@ -7,7 +7,7 @@ import zmq
 import sys
 import ast
 import redis
-
+import uuid
 def msgToDict(msg):
   try:
      dmsg = ast.literal_eval(msg)
@@ -34,7 +34,10 @@ def main():
           pipe.sadd('apps',app)
           pipe.sadd('apps::' + host, app)
           pipe.sadd('hosts::' + app, host)
-          pipe.rpush(host + "::" + app, dmsg['message'])
+          jmessage = dict()
+          jmessage["uuid"] = str(uuid.uuid4())
+          jmessage["html"] = """<div class="message">%s : %s</div>""" % (dmsg['timestamp'], dmsg['message'])
+          pipe.rpush(host + "::" + app, jmessage)
           response = pipe.execute()
 
 if __name__ == "__main__":

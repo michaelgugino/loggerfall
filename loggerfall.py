@@ -129,7 +129,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
 
 def local_cache_update(channel, msg, cache_len):
     if cache_len > 200:
-        ChatSocketHandler.channelcache[channel].pop()
+        ChatSocketHandler.channelcache[channel].pop(0)
     ChatSocketHandler.channelcache[channel].append(msg)
     pass
 
@@ -161,7 +161,7 @@ def check_redis():
                     local_cache_update(channel, msg, cache_len)
                     messages_to_send.append(msg)
 
-            if messages_to_send:
+            for msg in messages_to_send:
                 ChatSocketHandler.send_updates3(channel, msg)
 
         for chan in removals:

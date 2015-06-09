@@ -5,25 +5,79 @@
     <title>LoggerFall</title>
     <link rel="stylesheet" href="{{ static_url("chat.css") }}" type="text/css"/>
     <link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.1/themes/base/jquery-ui.css" type="text/css" />
-  </head>
-  <body>
-    <div id="body">
-      <div id="inboxz">
-        {% for message in messages %}
-          {% include "message.html" %}
-        {% end %}
-      </div>
-      <div id="inbox" class="dragThis">
-        1
-      </div>
-      <div id="inbox2" class="dragThis">
-      2
-      </div>
-
-    </div>
     <script src="{{ static_url("jquery.min.js") }}" type="text/javascript"></script>
     <script src="{{ static_url("purl.js") }}" type="text/javascript"></script>
     <script src="{{ static_url("chat.js") }}" type="text/javascript"></script>
     <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.2/jquery-ui.js"></script>
+    <script>
+$(function() {
+  $( ".column" ).sortable({
+    connectWith: ".column",
+    handle: ".portlet-header",
+    cancel: ".portlet-toggle",
+    placeholder: "portlet-placeholder ui-corner-all"
+  });
+
+  $( ".portlet" )
+    .addClass( "ui-widget ui-widget-content ui-helper-clearfix ui-corner-all" )
+    .find( ".portlet-header" )
+      .addClass( "ui-widget-header ui-corner-all" )
+      .prepend( "<span class='ui-icon ui-icon-minusthick portlet-toggle'></span>");
+
+  $( ".portlet-toggle" ).click(function() {
+    var icon = $( this );
+    icon.toggleClass( "ui-icon-minusthick ui-icon-plusthick" );
+    icon.closest( ".portlet" ).find( ".portlet-content" ).toggle();
+  });
+});
+</script>
+  </head>
+  <body>
+    <div id="body">
+
+
+      <div class="column">
+
+        <div class="portlet">
+          <div class="portlet-header">Feeds</div>
+          <div class="portlet-content">      <div id="inbox" class="logbox">
+                  1
+                </div></div>
+        </div>
+
+        <div class="portlet">
+          <div class="portlet-header">News</div>
+          <div class="portlet-content">      <div id="inbox2" class="logbox">
+                2
+                </div></div>
+        </div>
+
+      </div>
+
+      <div class="column">
+
+        <div class="portlet">
+          <div class="portlet-header">Shopping</div>
+          <div class="portlet-content">Lorem ipsum dolor sit amet, consectetuer adipiscing elit</div>
+        </div>
+
+      </div>
+
+      <div class="column">
+
+        <div class="portlet">
+          <div class="portlet-header">Links</div>
+          <div class="portlet-content">Lorem ipsum dolor sit amet, consectetuer adipiscing elit</div>
+        </div>
+
+        <div class="portlet">
+          <div class="portlet-header">Images</div>
+          <div class="portlet-content">Lorem ipsum dolor sit amet, consectetuer adipiscing elit</div>
+        </div>
+
+      </div>
+
+    </div>
+
   </body>
 </html>
