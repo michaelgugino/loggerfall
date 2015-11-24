@@ -1,0 +1,26 @@
+#/etc/circus/circusd.ini
+#this is the basic config file for circus
+[circus]
+check_delay = 5
+endpoint = tcp://127.0.0.1:5555
+pubsub_endpoint = tcp://127.0.0.1:5556
+httpd = true 
+httpd_host = 127.0.0.1
+httpd_port = 8089
+statsd = True
+
+[watcher:loggerfalld]
+cmd = /opt/loggerfall/loggerfall.py --fd=$(circus.sockets.loggerfall) | /usr/bin/logger
+#args = --port=$(circus.sockets.loggerfall)
+use_sockets = True
+warmup_delay = 0
+numprocesses = 5
+stdout_stream.class = StdoutStream
+[socket:loggerfall]
+host = 96.119.145.23
+port = 8888
+
+[watcher:redis-server]
+cmd = /usr/local/bin/redis-server
+numprocesses = 1
+warmup_delay = 0
